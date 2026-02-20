@@ -1,6 +1,8 @@
-package com.example.taskreminder.ui
+﻿package com.example.taskreminder.ui
 
 import android.app.Application
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.taskreminder.data.AppDatabase
@@ -13,12 +15,19 @@ import com.example.taskreminder.data.RecordSource
 import com.example.taskreminder.data.RecordStatus
 import com.example.taskreminder.data.TaskEntity
 import com.example.taskreminder.notification.ReminderScheduler
+import java.net.HttpURLConnection
+import java.net.URL
 import java.time.LocalDate
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val repository = AppRepository(AppDatabase.get(app))
@@ -35,11 +44,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         initialValue = null
     )
 
+    private val _updateInfo = MutableStateFlow<UpdateInfo?>(null)
+    val updateInfo: StateFlow<UpdateInfo?> = _updateInfo.asStateFlow()
+
     init {
         viewModelScope.launch {
             repository.ensureSettings()
             applySchedule()
         }
+        checkForUpdate()
     }
 
     fun observeItems(taskId: Long): Flow<List<ItemEntity>> = repository.observeItems(taskId)
@@ -117,5 +130,81 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val hour = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 20
         val minute = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
         return hour to minute
+    }
+
+    private fun checkForUpdate() {
+        viewModelScope.launch {
+            _updateInfo.value = withContext(Dispatchers.IO) {
+                runCatching {
+                    val current = currentVersionName()
+                    val conn = (URL(LATEST_RELEASE_API).openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 8_000
+                        readTimeout = 8_000
+                        requestMethod = "GET"
+                        setRequestProperty("Accept", "application/vnd.github+json")
+                    }
+                    conn.inputStream.bufferedReader().use { reader ->
+                        val json = JSONObject(reader.readText())
+                        val tag = json.optString("tag_name", "")
+                        val assets = json.optJSONArray("assets")
+                        var apkUrl: String? = null
+                        if (assets != null) {
+                            for (i in 0 until assets.length()) {
+                                val asset = assets.optJSONObject(i) ?: continue
+                                val name = asset.optString("name")
+                                if (name.endsWith(".apk", ignoreCase = true)) {
+                                    apkUrl = asset.optString("browser_download_url")
+                                    break
+                                }
+                            }
+                        }
+                        if (apkUrl.isNullOrBlank()) return@runCatching null
+                        if (isNewerVersion(tag, current)) {
+                            UpdateInfo(latestVersion = tag, apkUrl = apkUrl)
+                        } else {
+                            null
+                        }
+                    }
+                }.getOrNull()
+            }
+        }
+    }
+
+    private fun currentVersionName(): String {
+        val app = getApplication<Application>()
+        val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            app.packageManager.getPackageInfo(
+                app.packageName,
+                PackageManager.PackageInfoFlags.of(0)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            app.packageManager.getPackageInfo(app.packageName, 0)
+        }
+        return info.versionName ?: "0"
+    }
+
+    private fun isNewerVersion(remote: String, local: String): Boolean {
+        val r = remote.trim().removePrefix("v")
+        val l = local.trim().removePrefix("v")
+        val rParts = r.split('.').map { it.toIntOrNull() ?: 0 }
+        val lParts = l.split('.').map { it.toIntOrNull() ?: 0 }
+        val max = maxOf(rParts.size, lParts.size)
+        for (i in 0 until max) {
+            val rv = rParts.getOrElse(i) { 0 }
+            val lv = lParts.getOrElse(i) { 0 }
+            if (rv > lv) return true
+            if (rv < lv) return false
+        }
+        return false
+    }
+
+    data class UpdateInfo(
+        val latestVersion: String,
+        val apkUrl: String
+    )
+
+    companion object {
+        private const val LATEST_RELEASE_API = "https://api.github.com/repos/hamuhamuhamu/task-reminder-app/releases/latest"
     }
 }

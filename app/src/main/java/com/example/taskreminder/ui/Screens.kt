@@ -1,5 +1,7 @@
 package com.example.taskreminder.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +37,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -63,6 +66,8 @@ fun HomeScreen(
     navController: NavHostController
 ) {
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
+    val updateInfo by viewModel.updateInfo.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var showCreateDialog by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<TaskEntity?>(null) }
 
@@ -113,13 +118,29 @@ fun HomeScreen(
         }
     ) { paddingValues ->
         if (tasks.isEmpty()) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
+                    .padding(paddingValues)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("＋を押して最初のタスクを作成してください。")
+                updateInfo?.let { info ->
+                    UpdateAvailableCard(
+                        latestVersion = info.latestVersion,
+                        onClick = {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse(info.apkUrl))
+                            )
+                        }
+                    )
+                }
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("＋を押して最初のタスクを作成してください。")
+                }
             }
         } else {
             LazyColumn(
@@ -129,6 +150,18 @@ fun HomeScreen(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                updateInfo?.let { info ->
+                    item {
+                        UpdateAvailableCard(
+                            latestVersion = info.latestVersion,
+                            onClick = {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(info.apkUrl))
+                                )
+                            }
+                        )
+                    }
+                }
                 items(tasks) { task ->
                     TaskCard(
                         task = task,
@@ -137,6 +170,27 @@ fun HomeScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun UpdateAvailableCard(
+    latestVersion: String,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("最新版が利用できます", fontWeight = FontWeight.Bold)
+            Text("最新バージョン: $latestVersion")
+            Text("タップしてAPKをダウンロード")
         }
     }
 }
