@@ -20,6 +20,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val statusName = intent.getStringExtra(EXTRA_STATUS)
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
         val status = statusName?.let { RecordStatus.valueOf(it) } ?: return
+        val normalizedStatus = if (status == RecordStatus.NO) RecordStatus.UNSET else status
 
         if (taskId <= 0 || itemId <= 0) return
         if (notificationId >= 0) {
@@ -32,7 +33,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 taskId = taskId,
                 itemId = itemId,
                 date = LocalDate.now(),
-                status = status,
+                status = normalizedStatus,
                 source = RecordSource.NOTIFICATION
             )
         }

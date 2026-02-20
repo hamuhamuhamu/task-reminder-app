@@ -57,19 +57,6 @@ class DailyReminderWorker(
                     ),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                val noPendingIntent = PendingIntent.getBroadcast(
-                    appContext,
-                    (task.id * 1000 + summary.itemId * 2 + 2).toInt(),
-                    NotificationActionReceiver.intent(
-                        appContext = appContext,
-                        taskId = task.id,
-                        itemId = summary.itemId,
-                        status = RecordStatus.NO,
-                        notificationId = (task.id * 1000 + summary.itemId).toInt()
-                    ),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-
                 val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
                     .setSmallIcon(android.R.drawable.ic_menu_info_details)
                     .setContentTitle(task.name)
@@ -78,7 +65,6 @@ class DailyReminderWorker(
                     .setContentIntent(openPendingIntent)
                     .setAutoCancel(true)
                     .addAction(0, "はい", yesPendingIntent)
-                    .addAction(0, "いいえ", noPendingIntent)
                     .build()
 
                 NotificationManagerCompat.from(appContext).notify(

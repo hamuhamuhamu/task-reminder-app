@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -317,10 +318,11 @@ private fun CalendarTabContent(
             onClickDate = { date ->
                 val current = records.firstOrNull { it.recordDate == date.toString() }?.status
                     ?: RecordStatus.UNSET
-                val next = when (current) {
-                    RecordStatus.UNSET -> RecordStatus.YES
-                    RecordStatus.YES -> RecordStatus.NO
-                    RecordStatus.NO -> RecordStatus.UNSET
+                val next = if (current == RecordStatus.YES) {
+                    RecordStatus.UNSET
+                } else {
+                    // NO and UNSET are treated the same, so tap toggles only YES/UNSET.
+                    RecordStatus.YES
                 }
                 if (selectedItemId > 0) {
                     viewModel.saveDate(taskId, selectedItemId, date, next)
@@ -342,10 +344,15 @@ private fun CalendarGrid(
     val cells: List<LocalDate?> = List(leadingBlank) { null } + days
     val recordMap = records.associateBy { it.recordDate }
 
-    val weekTitles = listOf("月", "火", "水", "木", "金", "土", "日")
+    val weekTitles = listOf("日", "月", "火", "水", "木", "金", "土")
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         weekTitles.forEach { day ->
-            Text(day, modifier = Modifier.weight(1f), color = Color.Gray)
+            Text(
+                text = day,
+                modifier = Modifier.weight(1f),
+                color = Color.Gray,
+                textAlign = TextAlign.Center
+            )
         }
     }
     Spacer(modifier = Modifier.height(4.dp))
@@ -514,17 +521,17 @@ private fun AddItemDialog(
 }
 
 private fun DayOfWeek.shiftedForWeekStart(): Int = when (this) {
-    DayOfWeek.MONDAY -> 0
-    DayOfWeek.TUESDAY -> 1
-    DayOfWeek.WEDNESDAY -> 2
-    DayOfWeek.THURSDAY -> 3
-    DayOfWeek.FRIDAY -> 4
-    DayOfWeek.SATURDAY -> 5
-    DayOfWeek.SUNDAY -> 6
+    DayOfWeek.SUNDAY -> 0
+    DayOfWeek.MONDAY -> 1
+    DayOfWeek.TUESDAY -> 2
+    DayOfWeek.WEDNESDAY -> 3
+    DayOfWeek.THURSDAY -> 4
+    DayOfWeek.FRIDAY -> 5
+    DayOfWeek.SATURDAY -> 6
 }
 
 private fun statusColor(status: RecordStatus): Color = when (status) {
     RecordStatus.YES -> Color(0xFFA5D6A7)
-    RecordStatus.NO -> Color(0xFFEF9A9A)
+    RecordStatus.NO -> Color(0xFFE0E0E0)
     RecordStatus.UNSET -> Color(0xFFE0E0E0)
 }
