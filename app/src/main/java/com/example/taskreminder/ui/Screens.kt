@@ -26,14 +26,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,7 +44,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.example.taskreminder.data.DailyRecordEntity
 import com.example.taskreminder.data.ItemEntity
-import com.example.taskreminder.data.ItemStatusSummary
 import com.example.taskreminder.data.RecordStatus
 import com.example.taskreminder.data.TaskEntity
 import java.time.DayOfWeek
@@ -72,10 +68,10 @@ fun HomeScreen(
 
     if (showCreateDialog) {
         TaskEditorDialog(
-            title = "Create task",
+            title = "タスク作成",
             initialName = "",
             initialMemo = "",
-            initialItems = "Bowel",
+            initialItems = "項目1",
             onDismiss = { showCreateDialog = false },
             onConfirm = { name, memo, items ->
                 viewModel.createTask(name = name, memo = memo, itemNamesCsv = items)
@@ -86,7 +82,7 @@ fun HomeScreen(
 
     editTarget?.let { target ->
         TaskEditorDialog(
-            title = "Edit task",
+            title = "タスク編集",
             initialName = target.name,
             initialMemo = target.memo.orEmpty(),
             initialItems = "",
@@ -102,10 +98,10 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Home / Task list") },
+                title = { Text("ホーム / タスク一覧") },
                 actions = {
                     TextButton(onClick = { navController.navigate(Routes.SETTINGS) }) {
-                        Text("Settings")
+                        Text("設定")
                     }
                 }
             )
@@ -123,7 +119,7 @@ fun HomeScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Tap + to create the first task.")
+                Text("＋を押して最初のタスクを作成してください。")
             }
         } else {
             LazyColumn(
@@ -158,8 +154,8 @@ private fun TaskCard(
                 Text(it, style = MaterialTheme.typography.bodySmall)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onOpen) { Text("Open") }
-                TextButton(onClick = onEdit) { Text("Edit") }
+                Button(onClick = onOpen) { Text("開く") }
+                TextButton(onClick = onEdit) { Text("編集") }
             }
         }
     }
@@ -171,11 +167,7 @@ fun TaskDetailScreen(
     taskId: Long,
     viewModel: AppViewModel
 ) {
-    val today = remember { LocalDate.now() }
-    val summaries by viewModel.observeItemSummary(taskId, today)
-        .collectAsStateWithLifecycle(initialValue = emptyList())
     val items by viewModel.observeItems(taskId).collectAsStateWithLifecycle(initialValue = emptyList())
-    var selectedTab by remember { mutableIntStateOf(0) }
     var showAddItemDialog by remember { mutableStateOf(false) }
 
     if (showAddItemDialog) {
@@ -191,66 +183,25 @@ fun TaskDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Task detail") },
+                title = { Text("タスク詳細") },
                 actions = {
                     TextButton(onClick = { showAddItemDialog = true }) {
-                        Text("Add item")
+                        Text("項目追加")
                     }
                 }
             )
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("Table") })
-                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Calendar") })
-            }
-            when (selectedTab) {
-                0 -> TableTabContent(
-                    summaries = summaries,
-                    onYes = { itemId -> viewModel.saveToday(taskId, itemId, RecordStatus.YES) },
-                    onNo = { itemId -> viewModel.saveToday(taskId, itemId, RecordStatus.NO) }
-                )
-
-                else -> CalendarTabContent(
-                    taskId = taskId,
-                    items = items,
-                    viewModel = viewModel
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TableTabContent(
-    summaries: List<ItemStatusSummary>,
-    onYes: (Long) -> Unit,
-    onNo: (Long) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(summaries) { summary ->
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(summary.itemName, fontWeight = FontWeight.Bold)
-                    Text("Last YES: ${summary.lastYesDate ?: "N/A"}")
-                    Text("Days since last YES: ${summary.daysSinceLastYes ?: "N/A"}")
-                    Text("Today status: ${summary.todayStatus ?: RecordStatus.UNSET}")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { onYes(summary.itemId) }) { Text("Yes") }
-                        Button(onClick = { onNo(summary.itemId) }) { Text("No") }
-                    }
-                }
-            }
+            CalendarTabContent(
+                taskId = taskId,
+                items = items,
+                viewModel = viewModel
+            )
         }
     }
 }
@@ -285,9 +236,9 @@ private fun CalendarTabContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = { month = month.minusMonths(1) }) { Text("Prev") }
-            Text("${month.year}-${month.monthValue}", fontWeight = FontWeight.Bold)
-            TextButton(onClick = { month = month.plusMonths(1) }) { Text("Next") }
+            TextButton(onClick = { month = month.minusMonths(1) }) { Text("前月") }
+            Text("${month.year}年${month.monthValue}月", fontWeight = FontWeight.Bold)
+            TextButton(onClick = { month = month.plusMonths(1) }) { Text("次月") }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -337,7 +288,7 @@ private fun CalendarGrid(
     val cells: List<LocalDate?> = List(leadingBlank) { null } + days
     val recordMap = records.associateBy { it.recordDate }
 
-    val weekTitles = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    val weekTitles = listOf("月", "火", "水", "木", "金", "土", "日")
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         weekTitles.forEach { day ->
             Text(day, modifier = Modifier.weight(1f), color = Color.Gray)
@@ -387,9 +338,9 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text("設定") },
                 actions = {
-                    TextButton(onClick = onBack) { Text("Back") }
+                    TextButton(onClick = onBack) { Text("戻る") }
                 }
             )
         }
@@ -406,19 +357,19 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Enable daily notification")
+                Text("毎日通知を有効にする")
                 Switch(checked = enabled, onCheckedChange = { enabled = it })
             }
             OutlinedTextField(
                 value = time,
                 onValueChange = { time = it },
                 singleLine = true,
-                label = { Text("Notify time (HH:mm)") }
+                label = { Text("通知時刻 (HH:mm)") }
             )
             Button(
                 onClick = { viewModel.saveSettings(enabled = enabled, time = time) }
             ) {
-                Text("Save settings")
+                Text("設定を保存")
             }
         }
     }
@@ -447,18 +398,18 @@ private fun TaskEditorDialog(
                     value = name,
                     onValueChange = { name = it },
                     singleLine = true,
-                    label = { Text("Task name") }
+                    label = { Text("タスク名") }
                 )
                 OutlinedTextField(
                     value = memo,
                     onValueChange = { memo = it },
-                    label = { Text("Memo (optional)") }
+                    label = { Text("メモ（任意）") }
                 )
                 if (showItemsField) {
                     OutlinedTextField(
                         value = items,
                         onValueChange = { items = it },
-                        label = { Text("Items (comma separated)") }
+                        label = { Text("項目（カンマ区切り）") }
                     )
                 }
             }
@@ -469,12 +420,12 @@ private fun TaskEditorDialog(
                     if (name.isNotBlank()) onConfirm(name.trim(), memo.trim(), items)
                 }
             ) {
-                Text("Save")
+                Text("保存")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("キャンセル")
             }
         }
     )
@@ -488,22 +439,22 @@ private fun AddItemDialog(
     var itemName by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add item") },
+        title = { Text("項目追加") },
         text = {
             OutlinedTextField(
                 value = itemName,
                 onValueChange = { itemName = it },
                 singleLine = true,
-                label = { Text("Item name") }
+                label = { Text("項目名") }
             )
         },
         confirmButton = {
             Button(onClick = { if (itemName.isNotBlank()) onAdd(itemName.trim()) }) {
-                Text("Add")
+                Text("追加")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text("キャンセル") }
         }
     )
 }

@@ -32,8 +32,8 @@ class DailyReminderWorker(
 
         payload.forEach { (task, summaries) ->
             summaries.forEach { summary ->
-                val days = summary.daysSinceLastYes?.toString() ?: "N/A"
-                val message = "(${summary.itemName}) Today is day $days since last YES record."
+                val days = summary.daysSinceLastYes?.toString() ?: "不明"
+                val message = "（${summary.itemName}）前回のYESから $days 日目です。"
 
                 val openIntent = Intent(appContext, MainActivity::class.java).apply {
                     putExtra("taskId", task.id)
@@ -52,7 +52,8 @@ class DailyReminderWorker(
                         appContext = appContext,
                         taskId = task.id,
                         itemId = summary.itemId,
-                        status = RecordStatus.YES
+                        status = RecordStatus.YES,
+                        notificationId = (task.id * 1000 + summary.itemId).toInt()
                     ),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
@@ -63,7 +64,8 @@ class DailyReminderWorker(
                         appContext = appContext,
                         taskId = task.id,
                         itemId = summary.itemId,
-                        status = RecordStatus.NO
+                        status = RecordStatus.NO,
+                        notificationId = (task.id * 1000 + summary.itemId).toInt()
                     ),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
@@ -75,8 +77,8 @@ class DailyReminderWorker(
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
                     .setContentIntent(openPendingIntent)
                     .setAutoCancel(true)
-                    .addAction(0, "Yes", yesPendingIntent)
-                    .addAction(0, "No", noPendingIntent)
+                    .addAction(0, "はい", yesPendingIntent)
+                    .addAction(0, "いいえ", noPendingIntent)
                     .build()
 
                 NotificationManagerCompat.from(appContext).notify(
@@ -94,10 +96,10 @@ class DailyReminderWorker(
             appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Task Reminder",
+            "タスクリマインダー",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Daily reminder for task records"
+            description = "タスク記録の毎日通知"
         }
         manager.createNotificationChannel(channel)
     }
