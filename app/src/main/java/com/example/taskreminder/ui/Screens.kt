@@ -130,6 +130,7 @@ fun HomeScreen(
                     UpdateAvailableCard(
                         latestVersion = info.latestVersion,
                         onClick = {
+                            viewModel.markUpdateNoticeOpened(info.latestVersion)
                             context.startActivity(
                                 Intent(Intent.ACTION_VIEW, Uri.parse(info.apkUrl))
                             )
@@ -156,6 +157,7 @@ fun HomeScreen(
                         UpdateAvailableCard(
                             latestVersion = info.latestVersion,
                             onClick = {
+                                viewModel.markUpdateNoticeOpened(info.latestVersion)
                                 context.startActivity(
                                     Intent(Intent.ACTION_VIEW, Uri.parse(info.apkUrl))
                                 )

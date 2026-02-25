@@ -3,6 +3,7 @@
 import android.app.Application
 import android.content.pm.PackageManager
 import android.os.Build
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.taskreminder.data.AppDatabase
@@ -31,6 +32,7 @@ import org.json.JSONObject
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val repository = AppRepository(AppDatabase.get(app))
+    private val prefs = app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     val tasks: StateFlow<List<TaskEntity>> = repository.observeTasks().stateIn(
         scope = viewModelScope,
@@ -159,6 +161,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                             }
                         }
                         if (apkUrl.isNullOrBlank()) return@runCatching null
+                        val ignored = ignoredVersionTag()
+                        if (ignored == tag) return@runCatching null
                         if (isNewerVersion(tag, current)) {
                             UpdateInfo(latestVersion = tag, apkUrl = apkUrl)
                         } else {
@@ -169,6 +173,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    fun markUpdateNoticeOpened(versionTag: String) {
+        prefs.edit().putString(KEY_IGNORED_VERSION_TAG, versionTag).apply()
+        _updateInfo.value = null
+    }
+
+    private fun ignoredVersionTag(): String? = prefs.getString(KEY_IGNORED_VERSION_TAG, null)
 
     private fun currentVersionName(): String {
         val app = getApplication<Application>()
@@ -206,5 +217,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         private const val LATEST_RELEASE_API = "https://api.github.com/repos/hamuhamuhamu/task-reminder-app/releases/latest"
+        private const val PREFS_NAME = "app_ui_prefs"
+        private const val KEY_IGNORED_VERSION_TAG = "ignored_version_tag"
     }
 }
